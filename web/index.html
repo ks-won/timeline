@@ -51,14 +51,47 @@
         </div>
 
         <div v-if="activeKingdom" class="space-y-6 animate-in fade-in duration-500">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white/5 p-6 rounded-xl border border-white/5">
-                <div>
-                    <h2 class="text-3xl font-black text-white">Kingdom #{{ activeKingdom.id }}</h2>
-                    <p class="text-pink-400 font-medium">Founding Date: {{ formatDate(activeKingdom.birthDate) }}</p>
+            <div class="card-blur rounded-2xl border border-white/10 overflow-hidden mb-6">
+                <div class="p-6 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/5">
+                    <div>
+                        <h2 class="text-3xl font-black text-white leading-none">Kingdom {{ activeKingdom.id }}</h2>
+                        <p class="text-pink-400 text-sm font-medium mt-1">Born: {{ formatDate(activeKingdom.birthDate) }}</p>
+                    </div>
+                    <div class="mt-4 md:mt-0 text-left md:text-right">
+                        <div class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Current Age</div>
+                        <p class="text-3xl font-mono text-white leading-none">{{ currentAge }} <span class="text-sm text-gray-400 font-sans">Days</span></p>
+                    </div>
                 </div>
-                <div class="mt-4 md:mt-0 text-left md:text-right">
-                    <div class="text-xs uppercase tracking-widest text-gray-500 font-bold">Current Age</div>
-                    <p class="text-3xl font-mono text-white">{{ currentAge }} <span class="text-sm text-gray-400 font-sans">Days</span></p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-white/10 bg-black/20">
+                    <div class="p-4 flex items-center gap-4">
+                        <div class="bg-green-500/20 text-green-500 w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Current Milestone</div>
+                            <p class="text-lg font-bold text-white leading-tight">
+                                {{ currentMilestone ? currentMilestone.name : 'Early Game' }}
+                            </p>
+                            <p class="text-xs text-gray-400" v-if="currentMilestone">Unlocked @ {{ currentMilestone.unlockAge }} Days</p>
+                        </div>
+                    </div>
+
+                    <div class="p-4 flex items-center gap-4">
+                        <div class="bg-pink-500/20 text-pink-500 w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Next Milestone</div>
+                            <template v-if="nextMilestone">
+                                <p class="text-lg font-bold text-white leading-tight">{{ nextMilestone.name }}</p>
+                                <p class="text-pink-500 font-mono text-sm font-bold animate-pulse">
+                                    In {{ nextMilestone.daysRemaining }} Days
+                                </p>
+                            </template>
+                            <p v-else class="text-lg font-bold text-gray-500 italic leading-tight">Fully Developed</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -236,11 +269,13 @@
                             const birthdayDate = new Date(birth);
                             birthdayDate.setDate(birth.getDate() + ms.days);
                             const unlockDay = (ms.hard === true ? birthdayDate : getNextSunday(birthdayDate));
+                            const unlockAge = Math.floor((unlockDay - birth) / 86400000);
                             const daysRemaining = Math.ceil((unlockDay - now) / 86400000);
 
                             return {
                                 ...ms,
                                 unlockDate: unlockDay,
+                                unlockAge: unlockAge,
                                 ageRange: (ms.hard === true ? thresholdStart : `${thresholdStart}-${thresholdEnd}`),
                                 isUnlocked: now >= unlockDay,
                                 daysRemaining: daysRemaining > 0 ? daysRemaining : 0
@@ -249,7 +284,15 @@
                     ;
                 });
 
-                return { searchId, showAll, activeKingdom, error, lookupKingdom, currentAge, timeline, formatDate };
+                const currentMilestone = computed(() => {
+                    return [...timeline.value].reverse().find(m => m.isUnlocked);
+                });
+
+                const nextMilestone = computed(() => {
+                    return timeline.value.find(m => !m.isUnlocked);
+                });
+
+                return { searchId, showAll, activeKingdom, error, lookupKingdom, currentAge, timeline, currentMilestone, nextMilestone, formatDate };
             }
         }).mount('#app');
     </script>
