@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kingdom Timeline</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        [v-cloak] { display: none; }
+        .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); }
+        .card-blur { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); }
+        .timeline-line { background: linear-gradient(to bottom, #ec4899 0%, #8b5cf6 50%, transparent 100%); }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-gray-100 font-sans">
+
+    <div id="app" v-cloak class="max-w-4xl mx-auto px-4 py-12">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-extrabold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500">
+                Kingdom Timeline
+            </h1>
+        </header>
+
+        <div class="card-blur rounded-2xl p-8 border border-white/10 shadow-2xl mb-8">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="relative flex-grow">
+                    <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input 
+                        v-model="searchId" 
+                        @keyup.enter="lookupKingdom"
+                        type="text" 
+                        placeholder="Kingdom ID (e.g. 1150)" 
+                        class="w-full bg-black/40 border border-white/10 rounded-xl py-4 pl-12 pr-6 focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all text-lg"
+                    >
+                </div>
+                <button 
+                    @click="lookupKingdom"
+                    class="bg-pink-600 hover:bg-pink-500 px-10 py-4 rounded-xl font-bold transition-all transform active:scale-95 flex items-center justify-center gap-2"
+                >
+                    <span>Lookup</span>
+                </button>
+            </div>
+            
+            <p v-if="error" class="mt-4 text-red-400 text-sm flex items-center gap-2">
+                <i class="fas fa-exclamation-circle"></i> {{ error }}
+            </p>
+        </div>
+
+        <div v-if="activeKingdom" class="space-y-6 animate-in fade-in duration-500">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white/5 p-6 rounded-xl border border-white/5">
+                <div>
+                    <h2 class="text-3xl font-black text-white">Kingdom #{{ activeKingdom.id }}</h2>
+                    <p class="text-pink-400 font-medium">Founding Date: {{ formatDate(activeKingdom.birthDate) }}</p>
+                </div>
+                <div class="mt-4 md:mt-0 text-left md:text-right">
+                    <div class="text-xs uppercase tracking-widest text-gray-500 font-bold">Current Age</div>
+                    <p class="text-3xl font-mono text-white">{{ currentAge }} <span class="text-sm text-gray-400 font-sans">Days</span></p>
+                </div>
+            </div>
+
+            <div class="relative pt-8">
+                <div class="absolute left-6 top-0 bottom-0 w-1 timeline-line rounded-full"></div>
+
+                <div v-for="(ms, index) in timeline" :key="ms.name" class="relative pl-16 pb-12 last:pb-0">
+                    <div :class="[
+                        'absolute left-3 w-7 h-7 rounded-full border-4 border-[#0f172a] z-10 transition-all duration-500',
+                        ms.isUnlocked ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-gray-700'
+                    ]"></div>
+
+                    <div :class="['card-blur border rounded-2xl p-6 transition-all', ms.isUnlocked ? 'border-green-500/30 bg-green-500/5' : 'border-white/5']">
+                        <div class="flex flex-col md:flex-row justify-between gap-4">
+                            <div>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-white/10 text-gray-300 mb-2 inline-block">
+                                    THRESHOLD: {{ ms.days }} DAYS
+                                </span>
+                                <h3 class="text-xl font-bold" :class="ms.isUnlocked ? 'text-white' : 'text-gray-400'">
+                                    {{ ms.name }}
+                                </h3>
+                            </div>
+                            
+                            <div class="md:text-right">
+                                <div class="text-xs text-gray-500 uppercase font-bold mb-1">Unlock Date</div>
+                                <div :class="['text-xl font-mono leading-none', ms.isUnlocked ? 'text-green-400' : 'text-pink-500']">
+                                    {{ formatDate(ms.unlockDate) }}
+                                </div>
+                                <div v-if="!ms.isUnlocked" class="text-sm text-gray-400 mt-2">
+                                    {{ ms.daysRemaining }} days remaining
+                                </div>
+                                <div v-else class="text-sm text-green-500 font-bold mt-2">
+                                    <i class="fas fa-check-circle"></i> Unlocked
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        // Configuration: Define Milestone thresholds (Days)
+        const MILESTONES = [
+            { name: "Truegold 5",             days: 7 * 20 }, // 20 weeks
+            { name: "Governor Charm Lvl 11+", days: 7 * 24 }, // 24 weeks
+            { name: "Gen 4 Heroes & Pets",    days: 7 * 26 }, // 26 weeks
+            { name: "War Academy",            days: 7 * 30 }, // 30 weeks
+            { name: "Gen 5 Heroes & Pets",    days: 7 * 38 }, // 38 weeks
+            { name: "Truegold 8",             days: 7 * 44 }, // 44 weeks
+            { name: "Gen 6 Heroes & Pets",    days: 7 * 50 }, // 50 weeks
+            { name: "Gen 7 Heroes & Pets",    days: 7 * 62 }, // 62 weeks
+        ];
+
+        createApp({
+            setup() {
+                const searchId = ref('');
+                const kingdomsData = ref({});
+                const activeKingdom = ref(null);
+                const error = ref(null);
+
+                // Load the local JSON file on startup
+                onMounted(async () => {
+                    try {
+                        const response = await fetch('kingdoms.json');
+                        if (!response.ok) throw new Error('Could not find kingdoms.json');
+                        kingdomsData.value = await response.json();
+                    } catch (e) {
+                        error.value = "Error: kingdoms.json must be in the same folder as this HTML file.";
+                        console.error(e);
+                    }
+                });
+
+                const formatDate = (d) => new Date(d).toLocaleDateString('en-GB', { 
+                    day: '2-digit', month: 'short', year: 'numeric' 
+                });
+
+                const getNextSunday = (date) => {
+                    const d = new Date(date);
+                    const day = d.getDay(); // 0 is Sunday
+                    if (day !== 0) d.setDate(d.getDate() + (7 - day));
+                    return d;
+                };
+
+                const lookupKingdom = () => {
+                    error.value = null;
+                    const id = searchId.value.trim();
+                    
+                    if (!id) return;
+                    
+                    if (kingdomsData.value[id]) {
+                        activeKingdom.value = {
+                            id: id,
+                            birthDate: new Date(kingdomsData.value[id])
+                        };
+                    } else {
+                        activeKingdom.value = null;
+                        error.value = `Kingdom ${id} not found in database.`;
+                    }
+                };
+
+                const currentAge = computed(() => {
+                    if (!activeKingdom.value) return 0;
+                    return Math.floor((new Date() - activeKingdom.value.birthDate) / 86400000);
+                });
+
+                const timeline = computed(() => {
+                    if (!activeKingdom.value) return [];
+                    
+                    const birth = activeKingdom.value.birthDate;
+                    const now = new Date();
+                    now.setHours(0,0,0,0);
+
+                    return MILESTONES.map(ms => {
+                        const birthdayDate = new Date(birth);
+                        birthdayDate.setDate(birth.getDate() + ms.days);
+                        
+                        const unlockSunday = getNextSunday(birthdayDate);
+                        const daysRemaining = Math.ceil((unlockSunday - now) / 86400000);
+
+                        return {
+                            ...ms,
+                            unlockDate: unlockSunday,
+                            isUnlocked: now >= unlockSunday,
+                            daysRemaining: daysRemaining > 0 ? daysRemaining : 0
+                        };
+                    });
+                });
+
+                return { searchId, activeKingdom, error, lookupKingdom, currentAge, timeline, formatDate };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
