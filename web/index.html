@@ -86,7 +86,7 @@
                             <template v-if="nextMilestone">
                                 <p class="text-lg font-bold text-white leading-tight">{{ nextMilestone.name }}</p>
                                 <p class="text-pink-500 font-mono text-sm font-bold animate-pulse">
-                                    In {{ nextMilestone.daysRemaining }} Days
+                                    In {{ nextMilestone.daysRemaining }} Day{{ nextMilestone.daysRemaining > 1 ? 's' : '' }}
                                 </p>
                             </template>
                             <p v-else class="text-lg font-bold text-gray-500 italic leading-tight">Fully Developed</p>
@@ -130,7 +130,7 @@
                                     {{ formatDate(ms.unlockDate) }}
                                 </div>
                                 <div v-if="!ms.isUnlocked" class="text-sm text-gray-400 mt-2">
-                                    {{ ms.daysRemaining }} days remaining
+                                    {{ ms.daysRemaining }} day{{ ms.daysRemaining > 1 ? 's' : '' }} remaining
                                 </div>
                                 <div v-else class="text-sm text-green-500 font-bold mt-2">
                                     <i class="fas fa-check-circle"></i> Unlocked
