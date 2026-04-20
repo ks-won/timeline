@@ -104,7 +104,6 @@
     <script>
         const { createApp, ref, computed, onMounted } = Vue;
 
-        // Configuration: Define Milestone thresholds (Days)
         const MILESTONES = [
             { name: "Truegold 5",             days: 7 * 20 }, // 20 weeks
             { name: "Governor Charm Lvl 11+", days: 7 * 24 }, // 24 weeks
@@ -123,32 +122,20 @@
                 const activeKingdom = ref(null);
                 const error = ref(null);
 
-                // Load the local JSON file on startup
-                onMounted(async () => {
-                    try {
-                        const response = await fetch('kingdoms.json');
-                        if (!response.ok) throw new Error('Could not find kingdoms.json');
-                        kingdomsData.value = await response.json();
-                    } catch (e) {
-                        error.value = "Error: kingdoms.json must be in the same folder as this HTML file.";
-                        console.error(e);
-                    }
-                });
-
                 const formatDate = (d) => new Date(d).toLocaleDateString('en-GB', { 
                     day: '2-digit', month: 'short', year: 'numeric' 
                 });
 
                 const getNextSunday = (date) => {
                     const d = new Date(date);
-                    const day = d.getDay(); // 0 is Sunday
+                    const day = d.getDay();
                     if (day !== 0) d.setDate(d.getDate() + (7 - day));
                     return d;
                 };
 
-                const lookupKingdom = () => {
+                const lookupKingdom = (idFromHash) => {
                     error.value = null;
-                    const id = searchId.value.trim();
+                    const id = (typeof idFromHash === 'string' ? idFromHash : searchId.value).trim();
                     
                     if (!id) return;
                     
@@ -157,11 +144,38 @@
                             id: id,
                             birthDate: new Date(kingdomsData.value[id])
                         };
-                    } else {
+                        // Update the URL hash without reloading
+                        window.location.hash = id;
+                        searchId.value = id;
+                    } else if (Object.keys(kingdomsData.value).length > 0) {
                         activeKingdom.value = null;
                         error.value = `Kingdom ${id} not found in database.`;
                     }
                 };
+
+                onMounted(async () => {
+                    try {
+                        const response = await fetch('kingdoms.json');
+                        if (!response.ok) throw new Error('Could not find kingdoms.json');
+                        kingdomsData.value = await response.json();
+                        
+                        // Check if there is an ID in the URL hash on load
+                        const hash = window.location.hash.substring(1);
+                        if (hash) {
+                            lookupKingdom(hash);
+                        }
+                    } catch (e) {
+                        error.value = "Error: kingdoms.json must be in the same folder as this HTML file.";
+                    }
+                    
+                    // Listen for hash changes (back/forward button support)
+                    window.addEventListener('hashchange', () => {
+                        const hash = window.location.hash.substring(1);
+                        if (hash && hash !== activeKingdom.value?.id) {
+                            lookupKingdom(hash);
+                        }
+                    });
+                });
 
                 const currentAge = computed(() => {
                     if (!activeKingdom.value) return 0;
@@ -170,7 +184,6 @@
 
                 const timeline = computed(() => {
                     if (!activeKingdom.value) return [];
-                    
                     const birth = activeKingdom.value.birthDate;
                     const now = new Date();
                     now.setHours(0,0,0,0);
@@ -178,10 +191,8 @@
                     return MILESTONES.map(ms => {
                         const birthdayDate = new Date(birth);
                         birthdayDate.setDate(birth.getDate() + ms.days);
-                        
                         const unlockSunday = getNextSunday(birthdayDate);
                         const daysRemaining = Math.ceil((unlockSunday - now) / 86400000);
-
                         return {
                             ...ms,
                             unlockDate: unlockSunday,
