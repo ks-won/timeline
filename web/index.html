@@ -62,6 +62,15 @@
                 </div>
             </div>
 
+            <div class="flex justify-center pt-4">
+                <button 
+                    @click="showAll = !showAll"
+                    class="text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full border border-white/20 hover:bg-white/10 transition-colors"
+                >
+                    {{ showAll ? 'Hide Early Milestones' : 'Show All Milestones' }}
+                </button>
+            </div>
+
             <div class="relative pt-8">
                 <div class="absolute left-6 top-0 bottom-0 w-1 timeline-line rounded-full"></div>
 
@@ -75,7 +84,7 @@
                         <div class="flex flex-col md:flex-row justify-between gap-4">
                             <div>
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-white/10 text-gray-300 mb-2 inline-block">
-                                    THRESHOLD: {{ ms.days }} DAYS
+                                    THRESHOLD: {{ ms.ageRange }} DAYS
                                 </span>
                                 <h3 class="text-xl font-bold" :class="ms.isUnlocked ? 'text-white' : 'text-gray-400'">
                                     {{ ms.name }}
@@ -104,20 +113,34 @@
     <script>
         const { createApp, ref, computed, onMounted } = Vue;
 
-        const MILESTONES = [
-            { name: "Truegold 5",             days: 7 * 20 }, // 20 weeks
-            { name: "Governor Charm Lvl 11+", days: 7 * 24 }, // 24 weeks
-            { name: "Gen 4 Heroes & Pets",    days: 7 * 26 }, // 26 weeks
-            { name: "War Academy",            days: 7 * 30 }, // 30 weeks
-            { name: "Gen 5 Heroes & Pets",    days: 7 * 38 }, // 38 weeks
-            { name: "Truegold 8",             days: 7 * 44 }, // 44 weeks
-            { name: "Gen 6 Heroes & Pets",    days: 7 * 50 }, // 50 weeks
-            { name: "Gen 7 Heroes & Pets",    days: 7 * 62 }, // 62 weeks
+        const TIMELINE = [
+            { name: "Kingdom Founding",                days: 0, hard: true, historical: true },
+            { name: "Fog is lifted from Plains",       days: 14, hard: true, historical: true },
+            { name: "Fog is lifted from Fertile Land", days: 38, hard: true, historical: true },
+            { name: "Gen 2 Heroes",                    days: 7 * 6, historical: true }, // 6 weeks,
+            { name: "First Castle Battle",             days: 54, hard: true, historical: true },
+            { name: "Gen 1 Pets",                      days: 7 * 8, historical: true }, // 8 weeks
+            { name: "Age of Truegold",                 days: 70, hard: true, historical: true },
+            { name: "Gen 2 Pets",                      days: 7 * 11, historical: true }, // 11 weeks
+            { name: "Gen 3 Heroes & Pets",             days: 7 * 14, historical: true }, // 14 weeks
+
+            { name: "Truegold 5",                      days: 7 * 20 }, // 20 weeks
+            { name: "Governor Charm Lvl 11+",          days: 7 * 24 }, // 24 weeks
+            { name: "Gen 4 Heroes & Pets",             days: 7 * 26 }, // 26 weeks
+            { name: "War Academy",                     days: 7 * 30 }, // 30 weeks
+            { name: "Gen 5 Heroes & Pets",             days: 7 * 38 }, // 38 weeks
+            { name: "Truegold 8",                      days: 7 * 44 }, // 44 weeks
+            { name: "Gen 6 Heroes & Pets",             days: 7 * 50 }, // 50 weeks
+            { name: "Gen 7 Heroes & Pets",             days: 7 * 62 }, // 62 weeks
         ];
+
+        const forward = true;
+        const MILESTONES = forward ? TIMELINE : [...TIMELINE].reverse();
 
         createApp({
             setup() {
                 const searchId = ref('');
+                const showAll = ref(false);
                 const kingdomsData = ref({});
                 const activeKingdom = ref(null);
                 const error = ref(null);
@@ -181,28 +204,41 @@
                     if (!activeKingdom.value) return 0;
                     return Math.floor((new Date() - activeKingdom.value.birthDate) / 86400000);
                 });
-
+                
                 const timeline = computed(() => {
                     if (!activeKingdom.value) return [];
                     const birth = activeKingdom.value.birthDate;
                     const now = new Date();
                     now.setHours(0,0,0,0);
+                    
+                    const useActualThreshold = false;
+                    return MILESTONES
+                        .filter(ms => showAll.value || !ms.historical)
+                        .map(ms => {
+                            let thresholdStart = ms.days;
+                            let thresholdEnd = ms.days + 6; // 7-day window for each milestone
+                            if(useActualThreshold === false && ms.hard !== true) {
+                                thresholdStart = Math.floor(ms.days / 10) * 10; // Round down to nearest 10 days
+                                thresholdEnd = thresholdStart + 10; // 10-day window for each milestone
+                            }
 
-                    return MILESTONES.map(ms => {
-                        const birthdayDate = new Date(birth);
-                        birthdayDate.setDate(birth.getDate() + ms.days);
-                        const unlockSunday = getNextSunday(birthdayDate);
-                        const daysRemaining = Math.ceil((unlockSunday - now) / 86400000);
-                        return {
-                            ...ms,
-                            unlockDate: unlockSunday,
-                            isUnlocked: now >= unlockSunday,
-                            daysRemaining: daysRemaining > 0 ? daysRemaining : 0
-                        };
-                    });
+                            const birthdayDate = new Date(birth);
+                            birthdayDate.setDate(birth.getDate() + ms.days);
+                            const unlockDay = (ms.hard === true ? birthdayDate : getNextSunday(birthdayDate));
+                            const daysRemaining = Math.ceil((unlockDay - now) / 86400000);
+
+                            return {
+                                ...ms,
+                                unlockDate: unlockDay,
+                                ageRange: (ms.hard === true ? thresholdStart : `${thresholdStart}-${thresholdEnd}`),
+                                isUnlocked: now >= unlockDay,
+                                daysRemaining: daysRemaining > 0 ? daysRemaining : 0
+                            };
+                        })
+                    ;
                 });
 
-                return { searchId, activeKingdom, error, lookupKingdom, currentAge, timeline, formatDate };
+                return { searchId, showAll, activeKingdom, error, lookupKingdom, currentAge, timeline, formatDate };
             }
         }).mount('#app');
     </script>
