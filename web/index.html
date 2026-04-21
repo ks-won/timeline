@@ -23,6 +23,23 @@
             </h1>
         </header>
 
+        <div class="flex justify-center pb-4">
+            <button 
+                @click="utc = !utc"
+                class="flex items-center bg-black/40 border border-white/10 rounded-lg p-1 transition-all hover:border-pink-500/50"
+            >
+                <span :class="[
+                    'px-3 py-1 rounded text-[10px] font-bold tracking-widest transition-all',
+                    utc ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-500'
+                ]">UTC</span>
+
+                <span :class="[
+                    'px-3 py-1 rounded text-[10px] font-bold tracking-widest transition-all',
+                    !utc ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-500'
+                ]">LOCAL</span>
+            </button>
+        </div>
+
         <div class="card-blur rounded-2xl p-8 border border-white/10 shadow-2xl mb-8">
             <div class="flex flex-col md:flex-row gap-4">
                 <div class="relative flex-grow">
@@ -51,11 +68,13 @@
         </div>
 
         <div v-if="activeKingdom" class="space-y-6 animate-in fade-in duration-500">
+            
+
             <div class="card-blur rounded-2xl border border-white/10 overflow-hidden mb-6">
                 <div class="p-6 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/5">
                     <div>
                         <h2 class="text-3xl font-black text-white leading-none">Kingdom #{{ activeKingdom.id }}</h2>
-                        <p class="text-pink-400 text-sm font-medium mt-1">Created: {{ formatDate(activeKingdom.birthDate) }}</p>
+                        <p class="text-pink-400 text-sm font-medium mt-1">Created: {{ formatDate(activeKingdom.birthDate, true) }}</p>
                     </div>
                     <div class="mt-4 md:mt-0 text-left md:text-right">
                         <div class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Current Age</div>
@@ -86,14 +105,7 @@
                             <template v-if="nextMilestone">
                                 <p class="text-lg font-bold text-white leading-tight">{{ nextMilestone.name }}</p>
                                 <p class="text-pink-500 font-mono text-sm font-bold animate-pulse">
-                                    {{ (
-                                            nextMilestone.daysRemaining > 1
-                                                ? 'In ' + nextMilestone.daysRemaining + ' Days'
-                                                : ( nextMilestone.daysRemaining > 0
-                                                    ? 'Tomorrow'
-                                                    : 'Today'
-                                                )
-                                    ) }}
+                                    {{ countdown }}
                                 </p>
                             </template>
                             <p v-else class="text-lg font-bold text-gray-500 italic leading-tight">Fully Developed</p>
@@ -132,7 +144,7 @@
                             </div>
                             
                             <div class="md:text-right">
-                                <div class="text-xs text-gray-500 uppercase font-bold mb-1">Unlock Date</div>
+                                <div class="text-xs text-gray-500 uppercase font-bold mb-1">Unlock Date ({{ utc ? 'UTC' : 'Local' }})</div>
                                 <div :class="['text-xl font-mono leading-none', ms.isUnlocked ? 'text-green-400' : 'text-pink-500']">
                                     {{ formatDate(ms.unlockDate) }}
                                 </div>
@@ -152,7 +164,7 @@
             <div class="card-blur rounded-xl p-6 border border-white/5 inline-block max-w-2xl">
                 <p class="text-xs text-gray-500 leading-relaxed">
                     <i class="fas fa-info-circle mr-1"></i> 
-                    <strong>Disclaimer:</strong> The dates provided above are <strong>estimates</strong>.
+                    <strong>Disclaimer:</strong> The dates provided are <strong>estimates</strong>.
                     Actual in-game releases are subject to developer discretion, server maintenance shifts, 
                     and region-specific rollouts. This tool is for planning purposes only and is not 
                     affiliated with the game developers.
@@ -162,7 +174,7 @@
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted } = Vue;
+        const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
         const TIMELINE = [
             { name: "Kingdom Founding",                days: 0, hard: true, historical: true },
@@ -195,10 +207,48 @@
                 const kingdomsData = ref({});
                 const activeKingdom = ref(null);
                 const error = ref(null);
+                const utc = ref(true);
+                const now = ref(new Date());
+                let timer = null;
 
-                const formatDate = (d) => new Date(d).toLocaleDateString('en-GB', { 
-                    day: '2-digit', month: 'short', year: 'numeric' 
-                });
+                const formatDate = (d, includeTime = false) => {
+                    if(utc.value) {
+                        const day = new Date(d).getUTCDate().toString().padStart(2, '0');
+                        const month = new Date(d).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+                        const year = new Date(d).getUTCFullYear();
+
+                        if (includeTime !== true) {
+                            return `${day} ${month} ${year}`;
+                        }
+
+                        const hours = new Date(d).getUTCHours().toString().padStart(2, '0');
+                        const minutes = new Date(d).getUTCMinutes().toString().padStart(2, '0');
+                        const seconds = new Date(d).getUTCSeconds().toString().padStart(2, '0');
+
+                        return `${day} ${month} ${year} @ ${hours}:${minutes}:${seconds} UTC`;
+                    }
+
+                    const date = new Date(d);
+                    
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = date.toLocaleString('en-US', { month: 'short' });
+                    const year = date.getFullYear();
+                    
+                    if (includeTime !== true) {
+                        return `${day} ${month} ${year}`;
+                    }
+
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                    const seconds = String(date.getSeconds()).padStart(2, '0');
+                    const timezoneOffset = -date.getTimezoneOffset();
+                    const tzSign = timezoneOffset >= 0 ? '+' : '-';
+                    const tzHours = String(Math.floor(Math.abs(timezoneOffset) / 60)).padStart(2, '0');
+                    const tzMinutes = String(Math.abs(timezoneOffset) % 60).padStart(2, '0');
+                    const timezone = `${tzSign}${tzHours}:${tzMinutes}`;
+                    
+                    return `${day} ${month} ${year} @ ${hours}:${minutes}:${seconds} ${timezone}`;
+                };
 
                 const getNextSunday = (date) => {
                     const d = new Date(date);
@@ -228,6 +278,10 @@
                 };
 
                 onMounted(async () => {
+                    timer = setInterval(() => {
+                        now.value = new Date();
+                    }, 1000);
+
                     try {
                         const response = await fetch('kingdoms.json');
                         if (!response.ok) throw new Error('Could not find kingdoms.json');
@@ -251,6 +305,44 @@
                     });
                 });
 
+                onUnmounted(() => {
+                    if (timer) {
+                        clearInterval(timer);
+                    }
+                });
+
+                const getCountdown = (date) => {
+                    if(!date) return 'N/A';
+                    
+                    const diff = new Date(date) - now.value;
+                    if (diff <= 0) return 'Unlocked';
+
+                    const days = Math.floor(diff / 86400000);
+                    const hours = Math.floor((diff % 86400000) / 3600000);
+                    const minutes = Math.floor((diff % 3600000) / 60000);
+                    const seconds = Math.floor((diff % 60000) / 1000);
+
+                    const parts = [];
+                    if (days > 0) parts.push(`${days}d`);
+                    if (hours > 0 || days > 0) parts.push(`${hours}h`);
+                    if (minutes > 0 || hours > 0 || days > 0) parts.push(`${minutes}m`);
+                    if (seconds > 0 || minutes > 0 || hours > 0 || days > 0) parts.push(`${seconds}s`);
+                    
+                    return 'In ' + parts.join(' ');
+                };
+
+                const countdown = computed(() => {
+                    if(nextMilestone.value) {
+                        if(nextMilestone.value.daysRemaining > 1) {
+                            return `In ${nextMilestone.value.daysRemaining} Days`;
+                        }
+                        
+                        return getCountdown(nextMilestone.value.unlockDate);
+                    } else {
+                        return 'N/A';
+                    }
+                });
+
                 const currentAge = computed(() => {
                     if (!activeKingdom.value) return 0;
                     return Math.floor((new Date() - activeKingdom.value.birthDate) / 86400000);
@@ -262,19 +354,20 @@
                     const now = new Date();
                     now.setHours(0,0,0,0);
                     
-                    const useActualThreshold = false;
+                    const useActualThreshold = true;
                     return MILESTONES
                         .filter(ms => showAll.value || !ms.historical)
                         .map(ms => {
                             let thresholdStart = ms.days;
-                            let thresholdEnd = ms.days + 6; // 7-day window for each milestone
+                            let thresholdEnd = ms.days;
                             if(useActualThreshold === false && ms.hard !== true) {
                                 thresholdStart = Math.floor(ms.days / 10) * 10; // Round down to nearest 10 days
                                 thresholdEnd = thresholdStart + 10; // 10-day window for each milestone
                             }
 
                             const birthdayDate = new Date(birth);
-                            birthdayDate.setDate(birth.getDate() + ms.days);
+                            birthdayDate.setDate(birthdayDate.getDate() + ms.days);
+                            birthdayDate.setUTCHours(0,0,0,0);
                             const unlockDay = (ms.hard === true ? birthdayDate : getNextSunday(birthdayDate));
                             unlockDay.setUTCHours(0,0,0,0);
                             const unlockAge = Math.floor((unlockDay - birth) / 86400000);
@@ -284,7 +377,7 @@
                                 ...ms,
                                 unlockDate: unlockDay,
                                 unlockAge: unlockAge,
-                                ageRange: (ms.hard === true ? thresholdStart : `${thresholdStart}-${thresholdEnd}`),
+                                ageRange: (thresholdStart === thresholdEnd ? thresholdStart : `${thresholdStart}-${thresholdEnd}`),
                                 isUnlocked: now >= unlockDay,
                                 daysRemaining: daysRemaining > 0 ? daysRemaining : 0
                             };
@@ -300,7 +393,7 @@
                     return timeline.value.find(m => !m.isUnlocked);
                 });
 
-                return { searchId, showAll, activeKingdom, error, lookupKingdom, currentAge, timeline, currentMilestone, nextMilestone, formatDate };
+                return { searchId, showAll, activeKingdom, error, lookupKingdom, currentAge, timeline, currentMilestone, nextMilestone, formatDate, countdown, utc };
             }
         }).mount('#app');
     </script>
