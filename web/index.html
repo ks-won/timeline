@@ -74,7 +74,7 @@
                 <div class="p-6 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/5">
                     <div>
                         <h2 class="text-3xl font-black text-white leading-none">Kingdom #{{ activeKingdom.id }}</h2>
-                        <p class="text-pink-400 text-sm font-medium mt-1">Created: {{ formatDate(activeKingdom.birthDate, true) }}</p>
+                        <p class="text-pink-400 text-sm font-medium mt-1">Created: {{ formatDate(activeKingdom.birthDate, true, true) }}</p>
                     </div>
                     <div class="mt-4 md:mt-0 text-left md:text-right">
                         <div class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Current Age</div>
@@ -146,7 +146,7 @@
                             <div class="md:text-right">
                                 <div class="text-xs text-gray-500 uppercase font-bold mb-1">Unlock Date ({{ utc ? 'UTC' : 'Local' }})</div>
                                 <div :class="['text-xl font-mono leading-none', ms.isUnlocked ? 'text-green-400' : 'text-pink-500']">
-                                    {{ formatDate(ms.unlockDate) }}
+                                    {{ formatDate(ms.unlockDate, !utc) }}
                                 </div>
                                 <div v-if="!ms.isUnlocked" class="text-sm text-gray-400 mt-2">
                                     {{ ms.daysRemaining }} day{{ ms.daysRemaining > 1 ? 's' : '' }} remaining
@@ -211,7 +211,7 @@
                 const now = ref(new Date());
                 let timer = null;
 
-                const formatDate = (d, includeTime = false) => {
+                const formatDate = (d, includeTime = false, includeTimezone = false) => {
                     if(utc.value) {
                         const day = new Date(d).getUTCDate().toString().padStart(2, '0');
                         const month = new Date(d).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
@@ -224,6 +224,10 @@
                         const hours = new Date(d).getUTCHours().toString().padStart(2, '0');
                         const minutes = new Date(d).getUTCMinutes().toString().padStart(2, '0');
                         const seconds = new Date(d).getUTCSeconds().toString().padStart(2, '0');
+
+                        if (includeTimezone !== true) {
+                            return `${day} ${month} ${year} @ ${hours}:${minutes}:${seconds}`;
+                        }
 
                         return `${day} ${month} ${year} @ ${hours}:${minutes}:${seconds} UTC`;
                     }
@@ -241,6 +245,11 @@
                     const hours = String(date.getHours()).padStart(2, '0');
                     const minutes = String(date.getMinutes()).padStart(2, '0');
                     const seconds = String(date.getSeconds()).padStart(2, '0');
+
+                    if (includeTimezone !== true) {
+                        return `${day} ${month} ${year} @ ${hours}:${minutes}:${seconds}`;
+                    }
+
                     const timezoneOffset = -date.getTimezoneOffset();
                     const tzSign = timezoneOffset >= 0 ? '+' : '-';
                     const tzHours = String(Math.floor(Math.abs(timezoneOffset) / 60)).padStart(2, '0');
