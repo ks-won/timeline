@@ -86,7 +86,14 @@
                             <template v-if="nextMilestone">
                                 <p class="text-lg font-bold text-white leading-tight">{{ nextMilestone.name }}</p>
                                 <p class="text-pink-500 font-mono text-sm font-bold animate-pulse">
-                                    In {{ nextMilestone.daysRemaining }} Day{{ nextMilestone.daysRemaining > 1 ? 's' : '' }}
+                                    {{ (
+                                            nextMilestone.daysRemaining > 1
+                                                ? 'In ' + nextMilestone.daysRemaining + ' Days'
+                                                : ( nextMilestone.daysRemaining > 0
+                                                    ? 'Tomorrow'
+                                                    : 'Today'
+                                                )
+                                    ) }}
                                 </p>
                             </template>
                             <p v-else class="text-lg font-bold text-gray-500 italic leading-tight">Fully Developed</p>
@@ -269,6 +276,7 @@
                             const birthdayDate = new Date(birth);
                             birthdayDate.setDate(birth.getDate() + ms.days);
                             const unlockDay = (ms.hard === true ? birthdayDate : getNextSunday(birthdayDate));
+                            unlockDay.setUTCHours(0,0,0,0);
                             const unlockAge = Math.floor((unlockDay - birth) / 86400000);
                             const daysRemaining = Math.ceil((unlockDay - now) / 86400000);
 
