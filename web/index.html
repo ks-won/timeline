@@ -363,7 +363,7 @@
                     const now = new Date();
                     now.setHours(0,0,0,0);
                     
-                    const useActualThreshold = true;
+                    const useActualThreshold = false;
                     return MILESTONES
                         .filter(ms => showAll.value || !ms.historical)
                         .map(ms => {
@@ -379,8 +379,8 @@
                             birthdayDate.setUTCHours(0,0,0,0);
                             const unlockDay = (ms.hard === true ? birthdayDate : getNextSunday(birthdayDate));
                             unlockDay.setUTCHours(0,0,0,0);
-                            const unlockAge = Math.floor((unlockDay - birth) / 86400000);
-                            const daysRemaining = Math.ceil((unlockDay - now) / 86400000);
+                            const unlockAge = Math.floor((unlockDay - birthdayDate) / 86400000);
+                            const daysRemaining = Math.floor((unlockDay - now) / 86400000);
 
                             return {
                                 ...ms,
@@ -402,7 +402,7 @@
                     return timeline.value.find(m => !m.isUnlocked);
                 });
 
-                return { searchId, showAll, activeKingdom, error, lookupKingdom, currentAge, timeline, currentMilestone, nextMilestone, formatDate, countdown, utc };
+                return { now, searchId, showAll, activeKingdom, error, lookupKingdom, currentAge, timeline, currentMilestone, nextMilestone, formatDate, countdown, utc };
             }
         }).mount('#app');
     </script>
