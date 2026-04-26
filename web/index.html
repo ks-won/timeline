@@ -379,7 +379,7 @@
                             birthdayDate.setUTCHours(0,0,0,0);
                             const unlockDay = (ms.hard === true ? birthdayDate : getNextSunday(birthdayDate));
                             unlockDay.setUTCHours(0,0,0,0);
-                            const unlockAge = Math.floor((unlockDay - birthdayDate) / 86400000);
+                            const unlockAge = Math.floor((unlockDay - birth) / 86400000);
                             const daysRemaining = Math.floor((unlockDay - now) / 86400000);
 
                             return {
